@@ -178,11 +178,10 @@ if __name__ == '__main__':
         print "Path from source to destination: "
         print w.path
         exit(0)
-    elif args.dest:
-        from datetime import datetime, timedelta
-        now = datetime.utcnow()
-        counts = analyze_paths_to_dest(args.dest)
-        print (datetime.utcnow() - now).total_seconds()
+    else:
+        dest = args.dest or 'http://wikipedia.org/wiki/Philosophy'
+        print "Analyzing paths to: ", dest, " ..."
+        counts = analyze_paths_to_dest(dest)
         table = [('Path Length', 'Count')] + sorted(counts.items(), key=itemgetter(0))
         sum = 0
         for pathlen, count in counts.iteritems():
@@ -192,5 +191,3 @@ if __name__ == '__main__':
                 break
         print "Percentage of pages which lead to philosophy: ", float(500 - counts.get(INFINITY, 0)) / 500 * 100, "%"
         print tabulate(table)
-    else:
-        print "You need to at least specify a destination"
