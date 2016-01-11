@@ -4,6 +4,8 @@
 import requests
 from bs4 import BeautifulSoup
 import re
+from itertools import xrange
+from collections import Counter
 
 INFINITY = 1000
 URL_REGEX = re.compile(r'https?://(.*\.)*wikipedia.org/wiki/([a-zA-Z0-9\(\)_:]+)#?')
@@ -78,7 +80,7 @@ class WikiAnalyzer(object):
     def __init__(self, source, dest):
         self.source = source
         self.dest = dest
-    
+
     @classmethod
     def _cache_intermediate_paths(cls, path):
         for i, n in enumerate(path):
@@ -137,10 +139,30 @@ class WikiAnalyzer(object):
         WikiAnalyzer._cache_intermediate_paths(path)
         return path
 
+    @classmethod
+    def analyze_paths_to_philosophy(num=500):
+        """Computes paths to 'num' random pages and returns the distribution"""
+        counts = defaultdict(int)
+        seed = 'https://wikipedia.org/wiki/Special:Random'
+        dest = 'https://wikipedia.org/wiki/Philosophy'
+        for i in xrange(num):
+            try:
+                w = WikiAnalyzer(seed, dest)
+                path = w.path
+                counts[len(path)] += 1
+            except (BadPageException, BadLinkException, RouteLoopException, NoRouteException) as ex:
+                counts[INFINITY] += 1
+        return counts
+
+
 if __name__ == '__main__':
     dest = 'wikipedia.org/wiki/Philosophy'
     w = WikiAnalyzer('https://en.wikipedia.org/wiki/Special:Random', dest)
     print w.path
     w = WikiAnalyzer('https://en.wikipedia.org/wiki/Knowledge', dest)
     print w.path
-
+    
+    counts = WikiAnalyzer.analyze_paths_to_philosophy()
+    import pprint
+    pprint.pprint(counts)
+    
