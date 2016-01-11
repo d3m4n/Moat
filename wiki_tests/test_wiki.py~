@@ -1,0 +1,17 @@
+from ..wiki_analyzer import WikiAnalyzer
+
+
+DEST = 'https://en.wikipedia.org/wiki/Philosophy'
+
+def test_basic():
+    src = 'https://en.wikipedia.org/wiki/Art'
+    w = WikiAnalyzer(src, DEST)
+    assert ['Human_behavior', 'Motion_(physics)', 'Position_(vector)',
+            'Geometry', 'Mathematics', 'Quantity',
+            'Property_(philosophy)', 'Modern_philosophy',
+            'Philosophy'] == w.path
+
+def test_dest():
+    src = 'https://en.wikipedia.org/wiki/Art'
+     w = WikiAnalyzer(src, DEST)
+     assert [] == w.path

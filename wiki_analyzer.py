@@ -4,8 +4,8 @@
 import requests
 from bs4 import BeautifulSoup
 import re
-from itertools import xrange
-from collections import Counter
+from collections import defaultdict
+from multiprocessing import Pool
 
 INFINITY = 1000
 URL_REGEX = re.compile(r'https?://(.*\.)*wikipedia.org/wiki/([a-zA-Z0-9\(\)_:]+)#?')
@@ -27,6 +27,7 @@ class RouteLoopException(Exception):
 class NoRouteException(Exception):
     """Raised when reached a depth limit when trying to find philosophy page"""
     pass
+
 
 def is_valid_path(link):
     if not link.parent:
@@ -59,13 +60,14 @@ def is_valid_path(link):
             count += 1
         elif c == ')':
             count -= 1
-    if count == 1:
+    if count != 0:
         return False
     return True
 
+
 def get_leaf(link):
     m = URL_REGEX.match(link)
-    if not m.groups():
+    if not m or not m.groups():
         raise BadLinkException(link)
     groups = m.groups()
     if len(groups) < 2:
@@ -76,7 +78,6 @@ def get_leaf(link):
 class WikiAnalyzer(object):
     """Given a source page and a destination page, find path between them"""
     cache = {}
-
     def __init__(self, source, dest):
         self.source = source
         self.dest = dest
@@ -93,6 +94,7 @@ class WikiAnalyzer(object):
         """Returns path from source to dest"""
         source, dest = self.source, self.dest
         source_leaf = get_leaf(source)
+        dest_leaf = get_leaf(dest)
         if source_leaf in WikiAnalyzer.cache and source_leaf != _SPECIAL_RANDOM:
             return WikiAnalyzer.cache[source_leaf]
         path_len = 0
@@ -100,8 +102,10 @@ class WikiAnalyzer(object):
         path = []
         seen = set()
 
-        while dest not in current and path_len < INFINITY:
+        while path_len < INFINITY:
             leaf = get_leaf(current)
+            if dest_leaf == leaf:
+                return path
 
             if leaf in seen and leaf != _SPECIAL_RANDOM:
                 raise RouteLoopException(current)
@@ -139,8 +143,8 @@ class WikiAnalyzer(object):
         WikiAnalyzer._cache_intermediate_paths(path)
         return path
 
-    @classmethod
-    def analyze_paths_to_philosophy(num=500):
+
+def _analyze_paths_to_philosophy(num):
         """Computes paths to 'num' random pages and returns the distribution"""
         counts = defaultdict(int)
         seed = 'https://wikipedia.org/wiki/Special:Random'
@@ -155,14 +159,23 @@ class WikiAnalyzer(object):
         return counts
 
 
+def analyze_paths_to_philosophy():
+    counter = defaultdict(int)
+    pool = Pool(10)
+    counts = pool.map(_analyze_paths_to_philosophy, [50] * 10)
+    for c in counts:
+        for path_len, count in c.iteritems():
+            counter[path_len] += count
+    return counter
+
+
 if __name__ == '__main__':
-    dest = 'wikipedia.org/wiki/Philosophy'
-    w = WikiAnalyzer('https://en.wikipedia.org/wiki/Special:Random', dest)
+    dest = 'http://wikipedia.org/wiki/Philosophy'
+    w = WikiAnalyzer('https://en.wikipedia.org/wiki/Star_Wars', dest)
     print w.path
     w = WikiAnalyzer('https://en.wikipedia.org/wiki/Knowledge', dest)
     print w.path
-    
-    counts = WikiAnalyzer.analyze_paths_to_philosophy()
-    import pprint
-    pprint.pprint(counts)
-    
+
+    counts = analyze_paths_to_philosophy()
+    for path_len, count in counts.iteritems():
+        print "Path Length: ", path_len if path_len != INFINITY else 'INFINITE', " Count: ", count
