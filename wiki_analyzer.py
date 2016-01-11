@@ -130,11 +130,13 @@ class WikiAnalyzer(object):
                 if is_valid_path(link):
                     current = link.attrs.get('href')
                     if current.startswith('//'):
-                        current = 'https:' + current
+                        current = 'http:' + current
                     if current.startswith('http') and 'wikipedia.org' not in current:
                         continue
                     if not current.startswith('http'):
-                        current = 'https://wikipedia.org' + current
+                        current = 'http://wikipedia.org' + current
+                    if current.startswith('https://'):
+                        current = current.replace('https://', 'http://')
                     path_len += 1
                     break
             else:
@@ -171,11 +173,8 @@ def analyze_paths_to_philosophy():
 
 if __name__ == '__main__':
     dest = 'http://wikipedia.org/wiki/Philosophy'
-    w = WikiAnalyzer('https://en.wikipedia.org/wiki/Star_Wars', dest)
+    w = WikiAnalyzer('http://en.wikipedia.org/wiki/Quality_(philosophy)', dest)
     print w.path
-    w = WikiAnalyzer('https://en.wikipedia.org/wiki/Knowledge', dest)
-    print w.path
-
-    counts = analyze_paths_to_philosophy()
-    for path_len, count in counts.iteritems():
-        print "Path Length: ", path_len if path_len != INFINITY else 'INFINITE', " Count: ", count
+    #counts = analyze_paths_to_philosophy()
+    #for path_len, count in counts.iteritems():
+    #    print "Path Length: ", path_len if path_len != INFINITY else 'INFINITE', " Count: ", count
