@@ -1,8 +1,7 @@
 """Given a source page on wikipedia, finds the path to the Philosophy page
 """
 
-import requests
-from bs4 import BeautifulSoup
+from pyquery import PyQuery as pq
 import re
 from collections import defaultdict
 from multiprocessing import Pool
@@ -20,30 +19,33 @@ _SPECIAL_RANDOM = 'Special:Random'
 
 def is_valid_path(link):
     """Checks whether this link is the first non-italicized, non-parenthesized link in the body of the article"""
-    if not link.parent:
+    if not link.parent():
         return False
 
-    if not link.attrs or not link.attrs.get('href'):
+    if not link.attr('href'):
         return False
 
-    if link.parent.name != 'p':
+    if not link.parent().is_('p'):
         return False
 
-    if link.parent.attrs and 'hatnote' in link.parent.attrs.get('class', []):
+    if link.parent().hasClass('hatnote'):
         return False
 
-    if link.parent.name == 'i':
+    if link.parent().is_('sup') and link.parent().hasClass('reference'):
         return False
 
-    if link.attrs and 'image' in link.attrs.get('class', []):
+    if link.parent().is_('i'):
         return False
 
-    if link.findParent('table', attrs={'class': 'infobox'}):
+    if link.hasClass('image'):
         return False
 
-    idx = link.parent.text.find(link.text)
+    if link.parents('table.infobox'):
+        return False
+
+    idx = link.parent().text().find(link.text())
     count = 0
-    for i, c in enumerate(link.parent.text):
+    for i, c in enumerate(link.parent().text()):
         if i >= idx:
             break
         if c == '(':
@@ -66,6 +68,7 @@ def get_leaf(link):
 
 
 DEFAULT_LINK_PREDICATES = [is_valid_path]
+
 
 class WikiAnalyzer(object):
     """Given a source page and a destination page, find path between them"""
@@ -109,21 +112,20 @@ class WikiAnalyzer(object):
                 WikiAnalyzer.cache[source_leaf] = path + WikiAnalyzer.cache[leaf]
                 return WikiAnalyzer.cache[source_leaf]
 
-            r = requests.get(current)
-            if not r:
+            parser = pq(url=current)
+            if not parser:
                 raise BadPageException(current)
-
-            parser = BeautifulSoup(r.text, 'lxml')
 
             if leaf != _SPECIAL_RANDOM:
                 seen.add(leaf)
             path.append(leaf)
 
-            div = parser.find('div', {'id': 'mw-content-text'})
-            links = div.findAll('a')
+            div = parser('div').filter('#mw-content-text')
+            links = div('a')
             for link in links:
+                link = pq(link)
                 if all(p(link) for p in self.link_predicates):
-                    current = link.attrs.get('href')
+                    current = link.attr('href')
                     if current.startswith('//'):
                         current = 'http:' + current
                     if current.startswith('http') and 'wikipedia.org' not in current:
@@ -181,7 +183,10 @@ if __name__ == '__main__':
     else:
         dest = args.dest or 'http://wikipedia.org/wiki/Philosophy'
         print "Analyzing paths to: ", dest, " ..."
+        from datetime import datetime, timedelta
+        t0 = datetime.utcnow()
         counts = analyze_paths_to_dest(dest)
+        print (datetime.utcnow() - t0).total_seconds()
         table = [('Path Length', 'Count')] + sorted(counts.items(), key=itemgetter(0))
         sum = 0
         for pathlen, count in counts.iteritems():

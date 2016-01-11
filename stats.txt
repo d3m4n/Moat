@@ -1,0 +1,3 @@
+Pool size 10, Multiprocess, 278 seconds
+Pool size 4, Multiprocess, 444 seconds
+Pool size 20, Multiprocess, 274 seconds
