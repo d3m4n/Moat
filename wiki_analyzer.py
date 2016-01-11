@@ -149,8 +149,8 @@ class WikiAnalyzer(object):
 def _analyze_paths_to_philosophy(num):
         """Computes paths to 'num' random pages and returns the distribution"""
         counts = defaultdict(int)
-        seed = 'https://wikipedia.org/wiki/Special:Random'
-        dest = 'https://wikipedia.org/wiki/Philosophy'
+        seed = 'http://wikipedia.org/wiki/Special:Random'
+        dest = 'http://wikipedia.org/wiki/Philosophy'
         for i in xrange(num):
             try:
                 w = WikiAnalyzer(seed, dest)
