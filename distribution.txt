@@ -1,19 +1,29 @@
-Path Length:  22  Count:  6
-Path Length:  6  Count:  6
-Path Length:  7  Count:  6
-Path Length:  1000  Count:  34
-Path Length:  9  Count:  39
-Path Length:  10  Count:  40
-Path Length:  11  Count:  38
-Path Length:  12  Count:  40
-Path Length:  13  Count:  34
-Path Length:  14  Count:  43
-Path Length:  15  Count:  69
-Path Length:  16  Count:  42
-Path Length:  17  Count:  32
-Path Length:  18  Count:  25
-Path Length:  19  Count:  20
-Path Length:  20  Count:  12
-Path Length:  21  Count:  6
-Path Length:  8  Count:  7
-Path Length:  25  Count:  1
+Median:  14
+Percentage of pages which lead to philosophy:  92.6 %
+-----------  -----
+Path Length  Count
+2            1
+3            1
+4            3
+5            5
+6            3
+7            5
+8            8
+9            35
+10           24
+11           40
+12           45
+13           39
+14           50
+15           54
+16           59
+17           37
+18           26
+19           12
+20           9
+21           3
+22           2
+23           1
+26           1
+1000         37
+-----------  -----

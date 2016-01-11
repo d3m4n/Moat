@@ -1,1 +1,1 @@
-__all__ = ['wiki_analyzer']
+__all__ = ['wiki_analyzer', 'errors']

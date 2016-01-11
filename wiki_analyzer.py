@@ -6,30 +6,20 @@ from bs4 import BeautifulSoup
 import re
 from collections import defaultdict
 from multiprocessing import Pool
+from tabulate import tabulate
+from operator import itemgetter
+import argparse
+import sys
+
+from errors import *
 
 INFINITY = 1000
 URL_REGEX = re.compile(r'https?://(.*\.)*wikipedia.org/wiki/([a-zA-Z0-9\(\)_:]+)#?')
 _SPECIAL_RANDOM = 'Special:Random'
 
-class BadPageException(Exception):
-    """Raised when unable to read the contents of HTML page"""
-    pass
-
-class BadLinkException(Exception):
-    """Raised when link is incorrectly formatted"""
-    pass
-
-
-class RouteLoopException(Exception):
-    """Raised when a loop is detected trying to find the philosophy page"""
-    pass
-
-class NoRouteException(Exception):
-    """Raised when reached a depth limit when trying to find philosophy page"""
-    pass
-
 
 def is_valid_path(link):
+    """Checks whether this link is the first non-italicized, non-parenthesized link in the body of the article"""
     if not link.parent:
         return False
 
@@ -75,12 +65,17 @@ def get_leaf(link):
     return groups[1]
 
 
+DEFAULT_LINK_PREDICATES = [is_valid_path]
+
 class WikiAnalyzer(object):
     """Given a source page and a destination page, find path between them"""
     cache = {}
-    def __init__(self, source, dest):
+    def __init__(self, source, dest, *link_predicates):
         self.source = source
         self.dest = dest
+        self.link_predicates = link_predicates
+        if not self.link_predicates:
+            self.link_predicates = DEFAULT_LINK_PREDICATES
 
     @classmethod
     def _cache_intermediate_paths(cls, path):
@@ -107,10 +102,10 @@ class WikiAnalyzer(object):
             if dest_leaf == leaf:
                 return path
 
-            if leaf in seen and leaf != _SPECIAL_RANDOM:
+            if leaf != _SPECIAL_RANDOM and leaf in seen:
                 raise RouteLoopException(current)
 
-            if leaf in WikiAnalyzer.cache and leaf != _SPECIAL_RANDOM:
+            if leaf != _SPECIAL_RANDOM and leaf in WikiAnalyzer.cache:
                 WikiAnalyzer.cache[source_leaf] = path + WikiAnalyzer.cache[leaf]
                 return WikiAnalyzer.cache[source_leaf]
 
@@ -127,7 +122,7 @@ class WikiAnalyzer(object):
             div = parser.find('div', {'id': 'mw-content-text'})
             links = div.findAll('a')
             for link in links:
-                if is_valid_path(link):
+                if all(p(link) for p in self.link_predicates):
                     current = link.attrs.get('href')
                     if current.startswith('//'):
                         current = 'http:' + current
@@ -141,16 +136,17 @@ class WikiAnalyzer(object):
                     break
             else:
                 raise NoRouteException(current)
-
+        
+        # Backtrack and cache partial paths
         WikiAnalyzer._cache_intermediate_paths(path)
         return path
 
 
-def _analyze_paths_to_philosophy(num):
+def _analyze_paths_to_philosophy(args):
         """Computes paths to 'num' random pages and returns the distribution"""
         counts = defaultdict(int)
         seed = 'http://wikipedia.org/wiki/Special:Random'
-        dest = 'http://wikipedia.org/wiki/Philosophy'
+        dest, num = args[0], args[1]
         for i in xrange(num):
             try:
                 w = WikiAnalyzer(seed, dest)
@@ -161,10 +157,11 @@ def _analyze_paths_to_philosophy(num):
         return counts
 
 
-def analyze_paths_to_philosophy():
+def analyze_paths_to_dest(dest='http://wikipedia.org/wiki/Philosophy'):
+    """ Analyzes a sample of 500 random wikipedia pages and computes distribution of path lengths """
     counter = defaultdict(int)
-    pool = Pool(10)
-    counts = pool.map(_analyze_paths_to_philosophy, [50] * 10)
+    pool = Pool(20)
+    counts = pool.map(_analyze_paths_to_philosophy, [(dest, 25)] * 20)
     for c in counts:
         for path_len, count in c.iteritems():
             counter[path_len] += count
@@ -172,9 +169,28 @@ def analyze_paths_to_philosophy():
 
 
 if __name__ == '__main__':
-    dest = 'http://wikipedia.org/wiki/Philosophy'
-    w = WikiAnalyzer('http://en.wikipedia.org/wiki/Quality_(philosophy)', dest)
-    print w.path
-    #counts = analyze_paths_to_philosophy()
-    #for path_len, count in counts.iteritems():
-    #    print "Path Length: ", path_len if path_len != INFINITY else 'INFINITE', " Count: ", count
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-s", "--source", help="http link to the starting wikipedia document")
+    parser.add_argument("-d", "--dest", help="http link to the ending wikipedia document. Computes distribution if no source provided.")
+    args = parser.parse_args()
+    if args.source and args.dest:
+        w = WikiAnalyzer(args.source, args.dest)
+        print "Path from source to destination: "
+        print w.path
+        exit(0)
+    elif args.dest:
+        from datetime import datetime, timedelta
+        now = datetime.utcnow()
+        counts = analyze_paths_to_dest(args.dest)
+        print (datetime.utcnow() - now).total_seconds()
+        table = [('Path Length', 'Count')] + sorted(counts.items(), key=itemgetter(0))
+        sum = 0
+        for pathlen, count in counts.iteritems():
+            sum += count
+            if sum >= 250:
+                print "Median path length: ", pathlen
+                break
+        print "Percentage of pages which lead to philosophy: ", float(500 - counts.get(INFINITY, 0)) / 500 * 100, "%"
+        print tabulate(table)
+    else:
+        print "You need to at least specify a destination"
