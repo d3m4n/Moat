@@ -1,5 +1,7 @@
-from ..wiki_analyzer import WikiAnalyzer
+import pytest
 
+from ..wiki_analyzer import WikiAnalyzer, get_leaf
+from ..errors import *
 
 DEST = 'http://wikipedia.org/wiki/Philosophy'
 
@@ -40,3 +42,16 @@ def test_parenthesis():
     src = 'https://en.wikipedia.org/wiki/Genre'
     w = WikiAnalyzer(src, DEST)
     assert 'Literature' == w.path[1]
+
+
+def test_leafs():
+    link1 = 'http://wikipedia.org/wiki/Art'
+    link2 = 'https://www.wikipedia.org/wiki/Art'
+    link3 = 'http://wikipedia.org/wiki/Art#tag'
+    link4 = 'https://something.somethingelse.wikipedia.org/wiki/Art'
+    
+    assert all(get_leaf(l) == 'Art' for l in [link1, link2, link3, link4])
+    
+    link5 = 'http://google.com'
+    with pytest.raises(BadLinkException):
+        get_leaf(link5)

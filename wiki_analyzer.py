@@ -17,32 +17,51 @@ URL_REGEX = re.compile(r'https?://(.*\.)*wikipedia.org/wiki/([a-zA-Z0-9\(\)_:]+)
 _SPECIAL_RANDOM = 'Special:Random'
 
 
-def is_valid_path(link):
-    """Checks whether this link is the first non-italicized, non-parenthesized link in the body of the article"""
-    if not link.parent():
-        return False
+def get_leaf(link):
+    m = URL_REGEX.match(link)
+    if not m or not m.groups():
+        raise BadLinkException(link)
+    groups = m.groups()
+    if len(groups) < 2:
+        raise BadLinkException(link)
+    return groups[1]
 
-    if not link.attr('href'):
-        return False
 
-    if not link.parent().is_('p'):
-        return False
+def has_parent(link):
+    return link.parent()
 
-    if link.parent().hasClass('hatnote'):
-        return False
 
+def has_href(link):
+    return link.attr('href')
+
+
+def has_valid_parent(link):
+    return link.parent().is_('p')
+
+
+def not_hatnote(link):
+    return not link.parent().hasClass('hatnote')
+
+
+def not_superscript(link):
     if link.parent().is_('sup') and link.parent().hasClass('reference'):
         return False
+    return True
 
-    if link.parent().is_('i'):
-        return False
 
-    if link.hasClass('image'):
-        return False
+def not_italicized(link):
+    return not link.parent().is_('i')
 
-    if link.parents('table.infobox'):
-        return False
 
+def not_image(link):
+    return not link.hasClass('image')
+
+
+def not_infobox(link):
+    return not link.parents('table.infobox')
+
+
+def not_parenthesized(link):
     idx = link.parent().text().find(link.text())
     count = 0
     for i, c in enumerate(link.parent().text()):
@@ -57,22 +76,16 @@ def is_valid_path(link):
     return True
 
 
-def get_leaf(link):
-    m = URL_REGEX.match(link)
-    if not m or not m.groups():
-        raise BadLinkException(link)
-    groups = m.groups()
-    if len(groups) < 2:
-        raise BadLinkException(link)
-    return groups[1]
-
-
-DEFAULT_LINK_PREDICATES = [is_valid_path]
+DEFAULT_LINK_PREDICATES = [has_parent, has_href, has_valid_parent, not_hatnote,
+                           not_superscript, not_italicized, not_image,
+                           not_infobox, not_parenthesized]
 
 
 class WikiAnalyzer(object):
     """Given a source page and a destination page, find path between them"""
+
     cache = {}
+
     def __init__(self, source, dest, *link_predicates):
         self.source = source
         self.dest = dest
@@ -138,7 +151,7 @@ class WikiAnalyzer(object):
                     break
             else:
                 raise NoRouteException(current)
-        
+
         # Backtrack and cache partial paths
         WikiAnalyzer._cache_intermediate_paths(path)
         return path
@@ -183,10 +196,7 @@ if __name__ == '__main__':
     else:
         dest = args.dest or 'http://wikipedia.org/wiki/Philosophy'
         print "Analyzing paths to: ", dest, " ..."
-        from datetime import datetime, timedelta
-        t0 = datetime.utcnow()
         counts = analyze_paths_to_dest(dest)
-        print (datetime.utcnow() - t0).total_seconds()
         table = [('Path Length', 'Count')] + sorted(counts.items(), key=itemgetter(0))
         sum = 0
         for pathlen, count in counts.iteritems():
